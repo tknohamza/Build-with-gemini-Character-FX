@@ -9,15 +9,13 @@ const QUIET_THRESHOLD = 0.2; // Adjust this value based on testing
 const QUIET_DURATION = 2000; // milliseconds
 const EXTENDED_QUIET_DURATION = 10000; // milliseconds
 
-// Fix: Correctly define AIStudio interface and use it for window.aistudio to resolve type conflict.
+// Fix: Resolve potential duplicate identifier 'getHostUrl' by defining the aistudio object shape inline on the Window interface. This avoids a separate named AIStudio interface that might conflict with other definitions.
 declare global {
-  interface AIStudio {
-    getHostUrl(): Promise<string>;
-  }
-
   interface Window {
     webkitAudioContext: typeof AudioContext;
-    aistudio?: AIStudio;
+    aistudio?: {
+      getHostUrl(): Promise<string>;
+    };
   }
 }
 
@@ -293,7 +291,7 @@ const LiveAudioComponent = defineComponent({
       default: "hello, talk like a pirate."
     }
   },
-  emits: ['no-audio', 'speaking-start', 'extended-quiet', 'quota-exceeded'],
+  emits: ['no-audio', 'speaking-start', 'extended-quiet', 'quota-exceeded', 'mic-error'],
   setup(props, { emit }) {
     const isRecording = ref(false);
     const status = ref('');
@@ -581,6 +579,7 @@ const LiveAudioComponent = defineComponent({
         updateStatus('Microphone access granted');
       } catch (err) {
         updateStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        throw err;
       }
     };
 
@@ -657,6 +656,7 @@ const LiveAudioComponent = defineComponent({
       } catch (err) {
         console.log('Error starting recording:', err);
         updateStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        emit('mic-error');
         stopRecording();
       }
     };
@@ -1738,6 +1738,12 @@ Current time is ${new Date().toLocaleTimeString()}. Just say a very short introd
       }
     };
 
+    const handleMicError = () => {
+      micDisabled.value = true;
+      isConnecting.value = false;
+      playingResponse.value = false;
+    };
+
     const onStopClick = () => {
       isConnecting.value = false;
       onStopResponse()
@@ -1818,14 +1824,6 @@ Current time is ${new Date().toLocaleTimeString()}. Just say a very short introd
     };
 
     onMounted(async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-      } catch (e) {
-        console.warn('Microphone access has been disabled for this app.');
-        micDisabled.value = true;
-      }
-
       loadFromUrl();
       updateShareUrl();
       loadLogo();
@@ -2022,6 +2020,7 @@ Current time is ${new Date().toLocaleTimeString()}. Just say a very short introd
       onSpeakingStart,
       onGenerateCharacter,
       handleNoAudio,
+      handleMicError,
       onBack,
       currentIndex,
       liveAudioRef,
@@ -2501,7 +2500,7 @@ Current time is ${new Date().toLocaleTimeString()}. Just say a very short introd
       </div>
     </transition>
 
-    <LiveAudioComponent ref="liveAudioRef" @no-audio="handleNoAudio" @speaking-start="onSpeakingStart" @extended-quiet="showClickToRestartHelp = true;" @quota-exceeded="handleQuotaExceeded"/>
+    <LiveAudioComponent ref="liveAudioRef" @no-audio="handleNoAudio" @speaking-start="onSpeakingStart" @extended-quiet="showClickToRestartHelp = true;" @quota-exceeded="handleQuotaExceeded" @mic-error="handleMicError"/>
     </div>
   
     <!-- Share Modal -->

@@ -1,8 +1,6 @@
 {
   "name": "CharacterFX v0.0.1 beta (@tknohamza)",
   "description": "Unleash Gemini's creative TTS voices and see their characters come to life with Imagen.",
-  "requestFramePermissions": [
-    "microphone"
-  ],
+  "requestFramePermissions": [],
   "prompt": ""
 }
